@@ -45,6 +45,6 @@ if [[ "$(grep -c "Subject Alternative Name" "$san" || true)" -gt 0 ]]; then
 	echo "PASS: ${url}"
 	exit 0
 else
-	echo "INVALID: ${url}"
+	echo "INVALID (missing SAN): ${url}"
 	exit 1
 fi
