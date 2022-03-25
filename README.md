@@ -3,7 +3,7 @@
 Checks the HTTPS certificate securing a domain name.
 
 Returns PASS if the certificate contains a Subject Alternative Name (SAN).
-Returns INVALID if the certificate does not contain any SAN field.
+Returns INVALID if the certificate does not contain any SAN.
 
 ## Usage
 
@@ -17,8 +17,8 @@ Returns INVALID if the certificate does not contain any SAN field.
 The included `main.go` codes a self-contained Go webserver to be used for testing purposes.
 
 It listens on two ports:
-* `:8000`: exposes an HTTPS certificate complete with SAN DNSNames
-* `:8001`: exposes an HTTPS certificate without any SAN fields
+* `:8000`: HTTPS certificate complete with SAN DNSNames
+* `:8001`: HTTPS certificate without any SAN fields
 
 ```shell
 go run .
