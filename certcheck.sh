@@ -15,7 +15,8 @@ trap "rm -f '$san'" EXIT
 
 # Ignore HTTP endpoints
 if [[ ${url#"http://"} != "$url" ]]; then
-	echo "PASS: ${url} is not an HTTPS endpoint"
+	echo "WARNING: ${url} is not an HTTPS endpoint"
+	exit 0
 fi
 
 # Remove the schema from the URL
