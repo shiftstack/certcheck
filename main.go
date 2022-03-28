@@ -14,6 +14,8 @@ import (
 	"math/big"
 	"net/http"
 	"os"
+	"os/signal"
+	"sync"
 	"time"
 )
 
@@ -68,7 +70,7 @@ func generateCert(certFile, keyFile io.Writer, dnsNames []string) error {
 	return nil
 }
 
-func valid() {
+func valid(ctx context.Context, wg *sync.WaitGroup) {
 	certFile, err := os.CreateTemp("", "certcheck-cert")
 	if err != nil {
 		log.Fatal(err)
@@ -92,15 +94,26 @@ func valid() {
 		log.Fatal(err)
 	}
 
-	log.Fatal(http.ListenAndServeTLS(
-		addrValid,
-		certFile.Name(),
-		keyFile.Name(),
-		http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}),
-	))
+	srv := http.Server{
+		Addr:    addrValid,
+		Handler: http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}),
+	}
+
+	go func() {
+		<-ctx.Done()
+		if err := srv.Shutdown(context.Background()); err != nil {
+			// Error from closing listeners, or context timeout:
+			log.Printf("HTTP server Shutdown: %v", err)
+		}
+		wg.Done()
+	}()
+
+	if err := srv.ListenAndServeTLS(certFile.Name(), keyFile.Name()); err != http.ErrServerClosed {
+		log.Fatal(err)
+	}
 }
 
-func nosan() {
+func nosan(ctx context.Context, wg *sync.WaitGroup) {
 	certFile, err := os.CreateTemp("", "certcheck-cert")
 	if err != nil {
 		log.Fatal(err)
@@ -124,18 +137,43 @@ func nosan() {
 		log.Fatal(err)
 	}
 
-	log.Fatal(http.ListenAndServeTLS(
-		addrNoSAN,
-		certFile.Name(),
-		keyFile.Name(),
-		http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}),
-	))
+	srv := http.Server{
+		Addr:    addrNoSAN,
+		Handler: http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}),
+	}
+
+	go func() {
+		<-ctx.Done()
+		if err := srv.Shutdown(context.Background()); err != nil {
+			// Error from closing listeners, or context timeout:
+			log.Printf("HTTP server Shutdown: %v", err)
+		}
+		wg.Done()
+	}()
+
+	if err := srv.ListenAndServeTLS(certFile.Name(), keyFile.Name()); err != http.ErrServerClosed {
+		log.Fatal(err)
+	}
 }
 
 func main() {
-	ctx := context.Background()
-	go nosan()
-	go valid()
+	ctx, cancel := context.WithCancel(context.Background())
 
-	<-ctx.Done()
+	wg := new(sync.WaitGroup)
+
+	wg.Add(1)
+	go nosan(ctx, wg)
+
+	wg.Add(1)
+	go valid(ctx, wg)
+
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+
+	fmt.Println("Servers running. Hit ctrl-c to shutdown.")
+
+	<-c
+	cancel()
+
+	wg.Wait()
 }
